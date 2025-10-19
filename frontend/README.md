@@ -1,8 +1,8 @@
-# SarcasmDetect - Frontend
+# SarcasmDetect AI - Frontend
 
-**React 18** + **Vite 5** | Modern UI for Multi-Modal Sarcasm Detection
+**React 18** + **Vite 5** | Modern UI for Multi-Modal Sarcasm Analysis
 
-Frontend application built with React and Vite for the Sarcasm Detection System.
+Frontend application built with React and Vite for SarcasmDetect AI.
 
 ## 🚀 Quick Start
 

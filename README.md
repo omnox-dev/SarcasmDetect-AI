@@ -1,6 +1,6 @@
-# Sarcasm Detection System - Multi-Modal AI Analysis
+# SarcasmDetect AI - Multi-Modal Sarcasm Analysis
 
-**AI-Powered Sarcasm Detection** | Text, Image & Voice Analysis
+**SarcasmDetect AI** | Text, Image & Voice Analysis
 
 Web application for detecting sarcasm using Google Gemini AI and OCR technology.
 
@@ -90,7 +90,7 @@ Response includes: sarcasm label, intensity, emotions, risk score, explanation.
 - Build errors? Delete `node_modules` and reinstall
 - Voice issues? Use Chrome/Edge for best compatibility
 
-## 📚 Documentation
+- ## 📚 Documentation
 
 - `frontend/README.md` - Frontend setup
 - `FREE_DEPLOYMENT.md` - Deployment guide
