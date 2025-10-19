@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables (CRITICAL - has API keys!)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user-generated files)
+backend/uploads/
+uploads/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Personal notes and private documentation (keep locally, don't commit to GitHub)
+PROJECT_JOURNAL.md
+PROJECT_JOURNAL.tex
+CLIENT_DELIVERY_STRATEGY.md
+PROGRESS_SUMMARY.md
+FINAL_DELIVERY_SUMMARY.md
+PROJECT_STATUS.md
+OCR_WORKING.md
+VOICE_FEATURE_CLARIFICATION.md
+VOICE_TESTING_GUIDE.md
+GEMINI_AUDIO_TRANSCRIPTION.md
+FREE_DEPLOYMENT.md
+DEPLOYMENT_GUIDE.md
+FUTURE_ENHANCEMENTS.md
