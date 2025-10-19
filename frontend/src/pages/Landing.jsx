@@ -12,7 +12,7 @@ export default function Landing(){
     <div className="page container">
       <header className="header">
         <div>
-          <h1 className="title" style={{margin:0, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2em'}}>🎭 SarcasmDetect</h1>
+          <h1 className="title" style={{margin:0, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2em'}}>🎭 SarcasmDetect AI</h1>
           <p className="tag">AI-powered sarcasm detection for text, voice, and images</p>
         </div>
         <div>
@@ -255,7 +255,7 @@ export default function Landing(){
               {openFAQ === 4 && (
                 <div style={{padding: '0 20px 20px 20px', color: '#cbd5e1', lineHeight: '1.6'}}>
                   <p style={{margin: 0}}>
-                    Yes! SarcasmDetect is completely free to use. All features including voice transcription, OCR, and AI analysis are available at no cost.
+                    Yes! SarcasmDetect AI is completely free to use. All features including voice transcription, OCR, and AI analysis are available at no cost.
                   </p>
                 </div>
               )}
@@ -302,7 +302,7 @@ export default function Landing(){
       </main>
 
       <footer className="footer" style={{marginTop: 60, textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.95em', borderTop: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        SarcasmDetect v1.0 • Built with ❤️ using React + FastAPI + AI
+  SarcasmDetect AI v1.0 • Built with ❤️ using React + FastAPI + AI
       </footer>
     </div>
   )

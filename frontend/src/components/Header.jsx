@@ -32,7 +32,7 @@ export default function Header(){
             textDecoration: 'none'
           }}
         >
-          🎭 SarcasmDetect
+          🎭 SarcasmDetect AI
         </Link>
       </div>
       <nav 

@@ -1,4 +1,4 @@
-# Dockerfile for SarcasmDetect Backend with Tesseract OCR
+# Dockerfile for SarcasmDetect AI Backend with Tesseract OCR
 
 FROM python:3.11-slim
 

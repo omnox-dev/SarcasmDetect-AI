@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger("uvicorn.error")
 
-app = FastAPI(title="SarcasmDetect API")
+app = FastAPI(title="SarcasmDetect AI API")
 
 # Allow local development origins; change in production
 app.add_middleware(
