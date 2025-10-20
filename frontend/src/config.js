@@ -1,12 +1,11 @@
 // API Configuration for different environments
 const getAPIBaseURL = () => {
-  // In production on Railway, both frontend and backend are on same domain
+  // In production, use same Netlify domain (no CORS issues)
   if (import.meta.env.PROD) {
-    // Use same domain for Railway deployment (no CORS issues)
     return '';
   }
   // In development, use local backend
-  return '';
+  return 'http://localhost:8000';
 };
 
 export const API_BASE_URL = getAPIBaseURL();
