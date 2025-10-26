@@ -48,13 +48,6 @@ Test all features:
 - **Image**: Upload image → Auto-extract → Analyze  
 - **Voice**: Record or upload audio → Transcribe → Analyze
 
-## 📦 Deployment
-
-Can be deployed on free tiers:
-- Backend: Railway, Render, etc.
-- Frontend: Vercel, Netlify, etc.
-
-See `FREE_DEPLOYMENT.md` for details.
 ## 📊 Project Structure
 
 ```
@@ -90,11 +83,6 @@ Response includes: sarcasm label, intensity, emotions, risk score, explanation.
 - Build errors? Delete `node_modules` and reinstall
 - Voice issues? Use Chrome/Edge for best compatibility
 
-- ## 📚 Documentation
-
-- `frontend/README.md` - Frontend setup
-- `FREE_DEPLOYMENT.md` - Deployment guide
-- `PROJECT_JOURNAL.md` - Development notes
 
 ## 📄 License
 
@@ -175,7 +163,5 @@ This project is perfect for:
 ---
 
 **Questions?** Check the documentation files or open an issue!
-
-**Ready to deploy?** Follow `FREE_DEPLOYMENT.md` for step-by-step instructions! 🚀
 
 **Need help?** All features are tested and working. Just follow the Quick Setup above! 💪
