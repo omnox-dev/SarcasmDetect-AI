@@ -1,0 +1,23 @@
+SarcasmDetect AI - Multi-Modal Sarcasm Detection
+Copyright © 2025 omanox-dev. All Rights Reserved.
+
+This software and its source code are the intellectual property of omanox-dev.
+
+Permission is granted to students, educators, and researchers to use this project 
+for academic demonstration, learning, or portfolio purposes, provided that 
+proper credit is given to the author.
+
+Redistribution, resale, modification for resale, or public upload of this 
+software or its source code (including GitHub, GitLab, or other repositories) 
+without written permission from the author is strictly prohibited.
+
+This software is provided “as is” without warranty of any kind, express or implied, 
+including but not limited to the warranties of merchantability, fitness for a 
+particular purpose, and noninfringement.
+
+Disclaimer:
+This application is not intended for medical or mental-health diagnosis or treatment.
+It is an educational prototype demonstrating multi-modal AI integration.
+
+Attribution Required:
+Developed by omanox-dev — SarcasmDetect AI (2025)
