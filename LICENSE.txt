@@ -1,9 +1,3 @@
-
----
-
-# 📄 **Final `LICENSE.txt`**
-
-```text
 SarcasmDetect AI - Multi-Modal Sarcasm Detection
 Copyright © 2025 omanox-dev. All Rights Reserved.
 
