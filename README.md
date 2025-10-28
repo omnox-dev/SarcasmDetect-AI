@@ -1,3 +1,7 @@
+> 📄 Licensed under custom Academic Demonstration License  
+> © 2025 omanox-dev. All rights reserved.
+
+---
 # 🧠 SarcasmDetect AI – Multi-Modal Sarcasm Analysis
 
 **Developed and Owned by [omanox-dev]**
