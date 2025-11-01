@@ -17,6 +17,10 @@ It demonstrates advanced **AI orchestration** through a modern **React + FastAPI
 
 This project is an original creation by **omanox-dev** and is provided strictly for **educational, research, and demonstration purposes**.
 
+link to demo Video Of Application :- 
+Project Overview :- https://screenrec.com/share/3gprqIQ5Yd
+NLP Overview :- https://screenrec.com/share/BFAnk8YzGa
+
 ---
 
 ## 🎯 Core Features
