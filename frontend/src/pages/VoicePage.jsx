@@ -1,9 +1,11 @@
-import React, {useState, useEffect, useRef} from 'react'
+import React, {useState, useEffect, useRef, useContext} from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import API_BASE_URL from '../config.js'
+import { ModeContext } from '../context/ModeContext'
 
 export default function VoicePage(){
+  const { mode } = useContext(ModeContext)
   const [transcript, setTranscript] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -131,8 +133,11 @@ export default function VoicePage(){
     fd.append('acoustic_notes', '')
     
     try{
-      const res = await axios.post(`${API_BASE_URL}/api/analyze/voice`, fd, { 
-        headers: {'Content-Type':'multipart/form-data'},
+      const res = await axios.post(`${API_BASE_URL}/api/analyze/voice`, fd, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-Domain': mode // Add the X-Domain header
+        },
         timeout: 60000 // Increased timeout for audio processing
       })
       
@@ -367,9 +372,10 @@ export default function VoicePage(){
         {result && (
           <div className="result">
             <h3>📊 Analysis Results</h3>
-            
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>📝 Transcript:</h4>
+            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
+                {mode === 'social_media' ? 'Transcript in Social Media Context' : 'Transcript'}:
+              </h4>
               <div style={{
                 background: 'rgba(51, 65, 85, 0.5)',
                 padding: '12px',
@@ -380,9 +386,10 @@ export default function VoicePage(){
                 {result.transcript}
               </div>
             </div>
-
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>🎭 Sarcasm Analysis:</h4>
+            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
+                {mode === 'social_media' ? 'Sarcasm Analysis in Social Media Context' : 'Sarcasm Analysis'}:
+              </h4>
               <div className="badge" style={{
                 background: result.sarcasm_label === 'sarcastic' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: 'white',

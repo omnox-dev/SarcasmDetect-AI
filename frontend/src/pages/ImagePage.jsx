@@ -1,9 +1,12 @@
-import React, {useState} from 'react'
+import React, {useState, useContext} from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import API_BASE_URL from '../config.js'
+import { ModeContext } from '../context/ModeContext' // Import ModeContext
 
 export default function ImagePage(){
+  const { mode } = useContext(ModeContext); // Access the current mode from context
+
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [caption, setCaption] = useState('')
@@ -36,7 +39,10 @@ export default function ImagePage(){
       fd.append('image_caption', caption || '')
     
       const res = await axios.post(`${API_BASE_URL}/api/analyze/image`, fd, { 
-        headers: {'Content-Type':'multipart/form-data'},
+        headers: {
+          'Content-Type':'multipart/form-data',
+          'X-Domain': mode // Add the X-Domain header
+        },
         timeout: 60000 // 60 second timeout for OCR processing
       })
       setResult(res.data)
@@ -91,7 +97,7 @@ export default function ImagePage(){
   return (
     <div className="page container">
       <header className="header">
-        <h1>🖼️ Image Sarcasm Analysis</h1>
+        <h1>🖼️ Image Sarcasm Analysis {mode === 'social_media' && <span style={{fontSize: '0.6em', color: '#ec4899', fontWeight: '600'}}>(Social Media Mode)</span>}</h1>
         <Link to="/" className="btn" style={{
           padding: '10px 20px',
           fontSize: '14px',
@@ -239,23 +245,41 @@ export default function ImagePage(){
               </div>
             </div>
 
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>🎭 Sarcasm Analysis:</h4>
-              <div className="badge" style={{
-                background: result.sarcasm_label === 'sarcastic' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            {(() => {
+              const normalizedLabel = (result.sarcasm_label || '').toLowerCase()
+              const isSarcastic = normalizedLabel.includes('sarcastic')
+              const badgeStyle = {
+                background: isSarcastic
+                  ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: 'white',
                 padding: '10px 18px',
                 borderRadius: '12px',
                 display: 'inline-block',
                 fontWeight: '600'
-              }}>
-                {result.sarcasm_label.toUpperCase()} - {result.sarcasm_intensity}% intensity
-              </div>
-            </div>
+              }
+              const labelText = result.sarcasm_label || (isSarcastic ? 'Sarcastic' : 'Not Sarcastic')
+
+              return (
+                <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
+                  <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>
+                    {mode === 'social_media' ? '🎭 Sarcasm Analysis (Social Media Context)' : '🎭 Sarcasm Analysis'}
+                  </h4>
+                  <div className="badge" style={badgeStyle}>
+                    {labelText} — {result.sarcasm_intensity}% intensity
+                  </div>
+                </div>
+              )
+            })()}
 
             <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
               <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>💡 Explanation:</h4>
               <p style={{color: '#cbd5e1'}}>{result.explanation}</p>
+              {result.mode_explanation && (
+                <p style={{ color: '#94a3b8', fontSize: '0.9em', marginTop: '8px' }}>
+                  ℹ️ {result.mode_explanation}
+                </p>
+              )}
             </div>
 
             {result.emotions && result.emotions.length > 0 && (

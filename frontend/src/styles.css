@@ -37,6 +37,15 @@ body{
 		radial-gradient(at 97% 21%, rgba(245, 158, 11, 0.15) 0px, transparent 50%),
 		radial-gradient(at 52% 99%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
 	background-attachment: fixed;
+	transition: background-image 0.6s ease;
+}
+
+/* Social Media Mode - Different gradient theme */
+body.social-media-mode{
+	background-image: 
+		radial-gradient(at 27% 37%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+		radial-gradient(at 97% 21%, rgba(168, 85, 247, 0.18) 0px, transparent 50%),
+		radial-gradient(at 52% 99%, rgba(59, 130, 246, 0.18) 0px, transparent 50%);
 }
 
 *{

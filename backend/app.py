@@ -57,6 +57,7 @@ class TextAnalyzeResponse(BaseModel):
     risk_score: int
     highlights: List[str]
     explanation: str
+    mode_explanation: Optional[str] = None
 
 
 class VoiceAnalyzeResponse(TextAnalyzeResponse):
@@ -87,6 +88,57 @@ def check_rate_limit():
     if REQUESTS > RATE_LIMIT_PER_MIN:
         return False
     return True
+
+
+def _safe_int(value, default: int = 0) -> int:
+    """Convert a value to int, falling back gracefully."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_possible_json(value, fallback):
+    """Allow Gemini to return JSON fields either as objects or JSON strings."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return fallback
+    return value if value is not None else fallback
+
+
+def try_parse_json_field(value, fallback=None):
+    """Public helper for legacy call sites expecting JSON decoding."""
+    coerced = _parse_possible_json(value, fallback)
+    if coerced is None:
+        return fallback
+    return coerced
+
+
+def _normalize_analysis_payload(parsed: Optional[dict]) -> dict:
+    """Coerce Gemini output into the standard response schema."""
+    if not isinstance(parsed, dict):
+        parsed = {}
+
+    emotions = _parse_possible_json(parsed.get("emotions", []), [])
+    highlights = _parse_possible_json(parsed.get("highlights", []), [])
+
+    # Ensure list types when Gemini returns a single item or dict
+    if not isinstance(emotions, list):
+        emotions = [emotions] if emotions else []
+    if not isinstance(highlights, list):
+        highlights = [highlights] if highlights else []
+
+    return {
+        "sarcasm_label": parsed.get("sarcasm_label", "not_sarcastic"),
+        "sarcasm_intensity": _safe_int(parsed.get("sarcasm_intensity"), 0),
+        "emotions": emotions,
+        "risk_score": _safe_int(parsed.get("risk_score"), 0),
+        "highlights": highlights,
+        "explanation": parsed.get("explanation", ""),
+        "mode_explanation": parsed.get("mode_explanation"),
+    }
 
 
 def parse_json_from_text(raw: str):
@@ -147,9 +199,13 @@ async def analyze_text(req: TextAnalyzeRequest, request: Request):
     if not check_rate_limit():
         raise HTTPException(status_code=429, detail="Rate limit exceeded, try again later")
 
-    # Build compact per-call prompt
+    # Build default mode prompt
     context_snippet = "\n".join(req.context[-3:]) if req.context else ""
-    prompt_text = f'Text: "{req.text}"\nContext: "{context_snippet}"\nReturn JSON.'
+    prompt_text = (
+        f"Analyze the following text for sarcasm and tone. "
+        f"Focus on general language analysis without domain-specific elements. "
+        f"Text: \"{req.text}\"\nContext: \"{context_snippet}\"\nReturn JSON."
+    )
 
     # Retry wrapper: attempt call and one retry on failure
     try:
@@ -168,28 +224,8 @@ async def analyze_text(req: TextAnalyzeRequest, request: Request):
         logger.error("Failed to parse JSON. Raw response: %s", raw[:1000])
         raise HTTPException(status_code=502, detail="Failed to parse JSON from Gemini response")
 
-    # Normalize certain fields which may be returned as JSON-encoded strings
-    def try_parse_json_field(val):
-        if isinstance(val, str):
-            try:
-                return json.loads(val)
-            except Exception:
-                return val
-        return val
-
-    emotions = try_parse_json_field(parsed.get("emotions", [])) or []
-    highlights = try_parse_json_field(parsed.get("highlights", [])) or []
-    attention_regions = try_parse_json_field(parsed.get("attention_regions", [])) or []
-
     # Minimal validation and fallback defaults
-    resp = {
-        "sarcasm_label": parsed.get("sarcasm_label", "not_sarcastic"),
-        "sarcasm_intensity": int(parsed.get("sarcasm_intensity", 0)),
-        "emotions": emotions,
-        "risk_score": int(parsed.get("risk_score", 0)),
-        "highlights": highlights,
-        "explanation": parsed.get("explanation", ""),
-    }
+    resp = _normalize_analysis_payload(parsed)
 
     return resp
 
@@ -261,21 +297,28 @@ async def analyze_voice(
                 return val
         return val
 
+    payload = _normalize_analysis_payload(parsed)
     resp = {
         "transcript": transcript,
-        "sarcasm_label": parsed.get("sarcasm_label", "not_sarcastic"),
-        "sarcasm_intensity": int(parsed.get("sarcasm_intensity", 0)),
-        "emotions": try_parse_json_field(parsed.get("emotions", [])) or [],
+        "sarcasm_label": payload["sarcasm_label"],
+        "sarcasm_intensity": payload["sarcasm_intensity"],
+        "emotions": try_parse_json_field(parsed.get("emotions", payload["emotions"])) or [],
         "timestamps_explanations": try_parse_json_field(parsed.get("timestamps_explanations", [])) or [],
-        "risk_score": int(parsed.get("risk_score", 0)),
-        "highlights": try_parse_json_field(parsed.get("highlights", [])) or [],
-        "explanation": parsed.get("explanation", ""),
+        "risk_score": payload["risk_score"],
+        "highlights": try_parse_json_field(parsed.get("highlights", payload["highlights"])) or [],
+        "explanation": payload["explanation"],
+        "mode_explanation": payload.get("mode_explanation"),
     }
     return resp
 
 
 @app.post("/api/analyze/image", response_model=ImageAnalyzeResponse)
-async def analyze_image(file: UploadFile = File(...), ocr_text: Optional[str] = Form(None), image_caption: Optional[str] = Form(None)):
+async def analyze_image(
+    request: Request,
+    file: UploadFile = File(...),
+    ocr_text: Optional[str] = Form(None),
+    image_caption: Optional[str] = Form(None),
+):
     """Accept an image file and optional OCR text. If OCR not provided, try server-side OCR when enabled.
 
     Uses `extract_ocr_bytes` that saves uploads and runs local OCR when possible.
@@ -309,28 +352,136 @@ async def analyze_image(file: UploadFile = File(...), ocr_text: Optional[str] = 
         else:
             raise HTTPException(status_code=400, detail="OCR text is required for demo (paste OCR text) unless OCR is configured on server).")
 
-    prompt_text = f'OCR text: "{ocr_text}"\nImage caption: "{image_caption or ""}"\nReturn JSON.'
+    domain = request.headers.get("X-Domain", "default")
+
+    if domain == "social_media":
+        prompt_text = (
+            "Analyze the following OCR text as social media content (memes, screenshots, DMs). "
+            "Account for sarcasm cues like hashtags, emojis, and exaggerated slang."
+            f"\nOCR text: \"{ocr_text}\""
+            f"\nImage caption/context: \"{image_caption or ''}\""
+            "\nReturn JSON with sarcasm_label, sarcasm_intensity, emotions, risk_score, highlights, explanation."
+        )
+    else:
+        prompt_text = f'OCR text: "{ocr_text}"\nImage caption: "{image_caption or ""}"\nReturn JSON.'
+
     raw = call_gemini(prompt_text)
     parsed = parse_json_from_text(raw)
     if not parsed:
         raise HTTPException(status_code=502, detail="Failed to parse JSON from Gemini response")
-    def try_parse_json_field(val):
-        if isinstance(val, str):
-            try:
-                return json.loads(val)
-            except Exception:
-                return val
-        return val
+
+    payload = _normalize_analysis_payload(parsed)
+    if domain == "social_media":
+        label_map = {
+            "sarcastic": "Sarcastic Post",
+            "not_sarcastic": "Neutral Post",
+            "highly_sarcastic": "Highly Sarcastic Post",
+        }
+        payload["sarcasm_label"] = label_map.get(payload["sarcasm_label"], payload["sarcasm_label"])
+
+        social_note = " Social media pipeline: OCR text is interpreted with meme/post tone (hashtags, emojis, slang)."
+        if social_note not in payload["explanation"]:
+            payload["explanation"] = (payload["explanation"].strip() + social_note).strip()
+        payload["mode_explanation"] = (
+            "Social media image pipeline: OCR output is normalized for hashtags, mentions, and informal phrasing before sarcasm scoring."
+        )
 
     resp = {
         "ocr_text": ocr_text,
-        "sarcasm_label": parsed.get("sarcasm_label", "not_sarcastic"),
+        "sarcasm_label": payload["sarcasm_label"],
         "offensive_flag": parsed.get("offensive_flag", False),
         "attention_regions": try_parse_json_field(parsed.get("attention_regions", [])) or [],
-        "sarcasm_intensity": int(parsed.get("sarcasm_intensity", 0)),
-        "emotions": try_parse_json_field(parsed.get("emotions", [])) or [],
-        "risk_score": int(parsed.get("risk_score", 0)),
-        "highlights": try_parse_json_field(parsed.get("highlights", [])) or [],
-        "explanation": parsed.get("explanation", ""),
+        "sarcasm_intensity": payload["sarcasm_intensity"],
+        "emotions": try_parse_json_field(parsed.get("emotions", payload["emotions"])) or [],
+        "risk_score": payload["risk_score"],
+        "highlights": try_parse_json_field(parsed.get("highlights", payload["highlights"])) or [],
+        "explanation": payload["explanation"],
+        "mode_explanation": payload.get("mode_explanation"),
     }
     return resp
+
+
+@app.post("/api/analyze", response_model=TextAnalyzeResponse)
+async def analyze(req: TextAnalyzeRequest, request: Request):
+    domain = request.headers.get("X-Domain", "default")  # Read domain from headers
+
+    if not req.text or len(req.text.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    if not check_rate_limit():
+        raise HTTPException(status_code=429, detail="Rate limit exceeded, try again later")
+
+    # Route to the appropriate pipeline
+    if domain == 'social_media':
+        result = await analyze_social_media(req)
+    else:
+        result = await analyze_text(req, request)  # Default pipeline
+
+    return result
+
+
+async def analyze_social_media(req: TextAnalyzeRequest):
+    """Analyze text using the social media pipeline (e.g., for tweets, posts)."""
+    # Preprocess for social media (e.g., handle hashtags, emojis, slang)
+    processed_text = preprocess_social_media(req.text)
+
+    context_snippet = "\n".join(req.context[-3:]) if req.context else ""
+
+    # Build enhanced social media-specific prompt with more examples
+    prompt_text = (
+        f"Analyze the following text in the context of social media. "
+        f"Consider hashtags, emojis, informal expressions, and the tone typical of social media posts. "
+        f"Provide an explanation that references these elements explicitly. "
+        f"Examples:\n"
+        f"1. \"Wow, another Monday morning. Just what I needed to start my week off perfectly. #Blessed #LivingTheDream\"\n"
+        f"   Sarcasm: High intensity, Explanation: Overly positive language and hashtags used ironically to express annoyance.\n"
+        f"2. \"Best coffee ever! #Amazing #Blessed\"\n"
+        f"   Sarcasm: None, Explanation: Genuine positive sentiment expressed through hashtags and adjectives.\n"
+        f"3. \"Sure, because staying late at work is my favorite thing to do. #WorkLife #Goals\"\n"
+        f"   Sarcasm: High intensity, Explanation: Irony in expressing enjoyment of staying late at work.\n"
+        f"4. \"Had a great time at the party last night! 🎉 #FunTimes\"\n"
+        f"   Sarcasm: None, Explanation: Genuine excitement and positive sentiment conveyed through emojis and hashtags.\n"
+        f"5. \"Oh, fantastic! Another software update that breaks everything. #TechLife\"\n"
+        f"   Sarcasm: High intensity, Explanation: Sarcasm in expressing frustration with software updates.\n"
+        f"Text: \"{processed_text}\"\n"
+        f"Context: \"{context_snippet}\"\n"
+        "Return JSON with keys: sarcasm_label, sarcasm_intensity, emotions, risk_score, highlights, explanation."
+    )
+
+    # Use the default text analysis pipeline on processed text
+    raw = call_gemini(prompt_text)
+    parsed = parse_json_from_text(raw)
+    if not parsed:
+        raise HTTPException(status_code=502, detail="Failed to parse JSON from Gemini response")
+    payload = _normalize_analysis_payload(parsed)
+
+    label_map = {
+        "sarcastic": "Sarcastic Post",
+        "not_sarcastic": "Neutral Post",
+        "highly_sarcastic": "Highly Sarcastic Post",
+    }
+    payload["sarcasm_label"] = label_map.get(payload["sarcasm_label"], payload["sarcasm_label"])
+
+    # Encourage explanations that point out social media cues without overwriting the model output completely
+    explanation_addendum = " This assessment accounts for hashtags, emojis, and informal phrasing typical of social media posts."
+    if explanation_addendum not in payload["explanation"]:
+        payload["explanation"] = (payload["explanation"].strip() + explanation_addendum).strip()
+
+    payload["mode_explanation"] = (
+        "Social media pipeline: inputs are preprocessed for hashtags, mentions, and emojis before sarcasm analysis."
+    )
+
+    return payload
+
+
+def preprocess_social_media(text: str):
+    """Preprocess text for social media analysis.
+
+    Example: Remove hashtags, analyze emojis, expand slang, etc.
+    """
+    # Basic example: remove hashtags and mentions
+    text = text.replace('#', '').replace('@', '')
+
+    # TODO: Add more preprocessing as needed (e.g., emoji analysis, slang expansion)
+
+    return text

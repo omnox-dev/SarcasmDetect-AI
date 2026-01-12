@@ -7,10 +7,13 @@ import TextPage from './pages/TextPage'
 import VoicePage from './pages/VoicePage'
 import ImagePage from './pages/ImagePage'
 import Header from './components/Header'
+import ModeTheme from './components/ModeTheme'
+import { ModeProvider } from './context/ModeContext'
 
 function App(){
   return (
     <BrowserRouter>
+      <ModeTheme />
       <Header />
       <Routes>
         <Route path='/' element={<Landing/>} />
@@ -22,4 +25,4 @@ function App(){
   )
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+createRoot(document.getElementById('root')).render(<ModeProvider><App /></ModeProvider>)

@@ -1,7 +1,9 @@
-import React, {useState} from 'react'
+import React, {useContext, useState} from 'react'
 import { Link } from 'react-router-dom'
+import { ModeContext } from '../context/ModeContext'
 
 export default function Header(){
+  const { mode, toggleMode } = useContext(ModeContext); // Access mode and toggleMode from context
   const [open, setOpen] = useState(false)
   return (
     <header className="site-header" style={{
@@ -36,44 +38,47 @@ export default function Header(){
         </Link>
       </div>
       <nav 
-        className={`nav ${open? 'open':''}`} 
+        className={`nav ${open ? 'open' : ''}`} 
         aria-label="Main navigation"
       >
         <Link 
           to="/text" 
-          onClick={()=>setOpen(false)}
+          onClick={() => setOpen(false)}
           style={{
             color: '#94a3b8',
             textDecoration: 'none',
             padding: '10px 16px',
             borderRadius: '10px',
-            fontWeight: '500'
+            fontWeight: '500',
+            display: 'block' // Always visible
           }}
         >
           📝 Text
         </Link>
         <Link 
           to="/voice" 
-          onClick={()=>setOpen(false)}
+          onClick={() => setOpen(false)}
           style={{
             color: '#94a3b8',
             textDecoration: 'none',
             padding: '10px 16px',
             borderRadius: '10px',
-            fontWeight: '500'
+            fontWeight: '500',
+            display: mode === 'default' ? 'block' : 'none' // Visible only in default mode
           }}
         >
           🎤 Voice
         </Link>
         <Link 
           to="/image" 
-          onClick={()=>setOpen(false)}
+          onClick={() => setOpen(false)}
           style={{
             color: '#94a3b8',
             textDecoration: 'none',
             padding: '10px 16px',
             borderRadius: '10px',
-            fontWeight: '500'
+            fontWeight: '500',
+            display: 'block' // Always visible
           }}
         >
           📸 Image
@@ -141,6 +146,20 @@ export default function Header(){
             }}
           />
         </span>
+      </button>
+      <button 
+        onClick={toggleMode} 
+        style={{
+          padding: '8px 16px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: '600'
+        }}
+      >
+        {mode === 'default' ? 'Default' : 'Social Media Analysis'} Mode
       </button>
       
       {/* Lightweight mobile styles - NO animations */}
