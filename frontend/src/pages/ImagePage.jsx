@@ -1,375 +1,263 @@
-import React, {useState, useContext} from 'react'
-import { Link } from 'react-router-dom'
-import axios from 'axios'
-import API_BASE_URL from '../config.js'
-import { ModeContext } from '../context/ModeContext' // Import ModeContext
+import React, { useState, useContext } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import API_BASE_URL from "../config.js";
+import { ModeContext } from "../context/ModeContext";
 
-export default function ImagePage(){
-  const { mode } = useContext(ModeContext); // Access the current mode from context
+export default function ImagePage() {
+  const { mode, toggleMode } = useContext(ModeContext);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [caption, setCaption] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
-  const [caption, setCaption] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const isSocial = mode === "social_media";
+  const accentColor = isSocial ? "purple" : "indigo";
 
-  function handleFileChange(e){
-    const selectedFile = e.target.files[0]
-    setFile(selectedFile)
-    
-    // Create preview
-    if(selectedFile){
-      const reader = new FileReader()
-      reader.onloadend = () => setPreview(reader.result)
-      reader.readAsDataURL(selectedFile)
-    } else {
-      setPreview(null)
+  function handleFileChange(e) {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result);
+      reader.readAsDataURL(selectedFile);
     }
   }
 
-  async function submit(){
-    if(!file){ setError('Please select an image file'); return }
-    setLoading(true); setError(null); setResult(null)
-    try{
-      // Preprocess image to avoid OCR provider failures on very small or unusual files
-      const processed = await preprocessImageFile(file)
-      const fd = new FormData()
-      fd.append('file', processed, file.name)
-      fd.append('image_caption', caption || '')
-    
-      const res = await axios.post(`${API_BASE_URL}/api/analyze/image`, fd, { 
+  async function submit() {
+    if (!file) {
+      setError("Please select an image file");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const processed = await preprocessImageFile(file);
+      const fd = new FormData();
+      fd.append("file", processed, file.name);
+      fd.append("image_caption", caption || "");
+
+      const res = await axios.post(`${API_BASE_URL}/api/analyze/image`, fd, {
         headers: {
-          'Content-Type':'multipart/form-data',
-          'X-Domain': mode // Add the X-Domain header
+          "Content-Type": "multipart/form-data",
+          "X-Domain": mode
         },
-        timeout: 60000 // 60 second timeout for OCR processing
-      })
-      setResult(res.data)
-    }catch(e){
-      setError(e.response?.data?.detail || e.message)
-    }finally{ setLoading(false) }
+        timeout: 60000
+      });
+      setResult(res.data);
+    } catch (e) {
+      setError(e.response?.data?.detail || e.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  // Client-side preprocessing: load image into canvas, resize (or upscale small images), and export as JPEG blob
-  function preprocessImageFile(file){
-    const MIN_DIM = 600 // upscale tiny images to at least this dimension
-    const MAX_DIM = 1600 // limit max dimension to reduce upload size
-
+  function preprocessImageFile(file) {
+    const MIN_DIM = 600;
+    const MAX_DIM = 1600;
     return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file)
-      const img = new Image()
+      const url = URL.createObjectURL(file);
+      const img = new Image();
       img.onload = () => {
-        try{
-          let {width, height} = img
-          // If very small, upscale proportionally to MIN_DIM
-          const largest = Math.max(width, height)
-          let scale = 1
-          if(largest < MIN_DIM) scale = MIN_DIM / largest
-          else if(largest > MAX_DIM) scale = MAX_DIM / largest
-
-          const outW = Math.round(width * scale)
-          const outH = Math.round(height * scale)
-          const canvas = document.createElement('canvas')
-          canvas.width = outW
-          canvas.height = outH
-          const ctx = canvas.getContext('2d')
-          // Fill transparent backgrounds with white to help OCR
-          ctx.fillStyle = '#ffffff'
-          ctx.fillRect(0,0,outW,outH)
-          ctx.drawImage(img, 0, 0, outW, outH)
+        try {
+          let { width, height } = img;
+          const largest = Math.max(width, height);
+          let scale = 1;
+          if (largest < MIN_DIM) scale = MIN_DIM / largest;
+          else if (largest > MAX_DIM) scale = MAX_DIM / largest;
+          const outW = Math.round(width * scale);
+          const outH = Math.round(height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = outW;
+          canvas.height = outH;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, outW, outH);
+          ctx.drawImage(img, 0, 0, outW, outH);
           canvas.toBlob((blob) => {
-            URL.revokeObjectURL(url)
-            if(!blob) return reject(new Error('Image processing failed'))
-            // Return a Blob that can be appended as file in FormData
-            resolve(blob)
-          }, 'image/jpeg', 0.92)
-        }catch(err){
-          URL.revokeObjectURL(url)
-          reject(err)
+            URL.revokeObjectURL(url);
+            if (!blob) return reject(new Error("Image processing failed"));
+            resolve(blob);
+          }, "image/jpeg", 0.92);
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          reject(err);
         }
-      }
-      img.onerror = (e) => { URL.revokeObjectURL(url); reject(new Error('Failed to load image for processing')) }
-      img.src = url
-    })
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
+      img.src = url;
+    });
   }
 
   return (
-    <div className="page container">
-      <header className="header">
-        <h1>🖼️ Image Sarcasm Analysis {mode === 'social_media' && <span style={{fontSize: '0.6em', color: '#ec4899', fontWeight: '600'}}>(Social Media Mode)</span>}</h1>
-        <Link to="/" className="btn" style={{
-          padding: '10px 20px',
-          fontSize: '14px',
-          background: 'rgba(99, 102, 241, 0.1)',
-          border: '2px solid rgba(99, 102, 241, 0.3)',
-          color: '#a5b4fc'
-        }}>← Back to Home</Link>
-      </header>
+    <div className={`min-h-screen ${isSocial ? "bg-slate-950" : "bg-indigo-950"} text-slate-100 font-sans selection:bg-${accentColor}-500/30 overflow-x-hidden relative transition-colors duration-700`}>
+      {/* Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${isSocial ? "from-purple-900/10" : "from-indigo-900/10"} via-transparent to-transparent`}></div>
+        <div className="data-point top-[5%] left-[40%] opacity-20"></div>
+        <div className="data-point top-[70%] left-[85%] opacity-20"></div>
+      </div>
 
-      <main>
-        <p style={{color: '#94a3b8', fontSize: '15px', marginBottom: '24px'}}>
-          📸 Upload an image with text (screenshot, meme, message, etc.) • 🤖 OCR will automatically extract and analyze for sarcasm
-        </p>
-
-        {/* Upload Image */}
-        <div style={{
-          marginBottom: '24px',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            📤 Upload Image
-          </label>
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={handleFileChange}
-            style={{
-              display: 'block',
-              padding: '12px',
-              border: '3px dashed rgba(99, 102, 241, 0.5)',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              width: '100%',
-              background: 'rgba(51, 65, 85, 0.5)',
-              fontSize: '16px',
-              fontWeight: '500',
-              color: '#f1f5f9'
-            }}
-          />
-        </div>
-
-        {/* Image Preview */}
-        {preview && (
-          <div style={{
-            marginBottom: '24px',
-            background: 'rgba(30, 41, 59, 0.5)',
-            padding: '20px',
-            borderRadius: '16px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{display: 'block', marginBottom: '12px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-              🖼️ Image Preview
-            </label>
-            <div style={{
-              border: '2px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: '12px',
-              padding: '12px',
-              maxWidth: '500px',
-              background: 'rgba(51, 65, 85, 0.3)'
-            }}>
-              <img 
-                src={preview} 
-                alt="Preview" 
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '300px',
-                  display: 'block',
-                  margin: '0 auto',
-                  borderRadius: '8px'
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Optional Caption */}
-        <div style={{
-          marginBottom: '24px',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            💬 Image Caption (Optional)
-          </label>
-          <input 
-            value={caption} 
-            onChange={e=>setCaption(e.target.value)}
-            placeholder="Add context about the image..."
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '10px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '15px',
-              background: 'rgba(51, 65, 85, 0.5)',
-              color: '#f1f5f9'
-            }}
-          />
-        </div>
-
-        <div className="actions">
+      <nav className="fixed top-0 w-full z-50 px-10 py-8 flex justify-between items-center bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm">
+        <Link to="/" className="flex items-center gap-3 group">
+          <span className={`material-symbols-outlined ${isSocial ? "text-purple-400" : "text-indigo-400"} font-light text-3xl transition-colors group-hover:rotate-180 duration-700`}>flare</span>
+          <span className="text-sm font-light tracking-[0.4em] uppercase text-slate-300">SarcasmDetect</span>
+        </Link>
+        <div className="flex gap-6 items-center">
           <button 
-            className="btn" 
-            onClick={submit} 
-            disabled={loading || !file}
-            style={{
-              fontSize: '18px',
-              padding: '14px 32px',
-              fontWeight: '600'
-            }}
+            onClick={toggleMode}
+            className={`px-6 py-2 ${isSocial ? "bg-purple-500/10 border-purple-500/20 text-purple-300" : "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"} border rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-opacity-20 transition-all`}
           >
-            {loading ? '🔍 Extracting & Analyzing...' : '🚀 Analyze Image'}
+            {isSocial ? "Social Mode" : "Default Mode"}
           </button>
+          <Link to="/catalog" className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-white/10 transition-all">
+            Back to Select Console
+          </Link>
+        </div>
+      </nav>
+
+      <main className="relative z-10 pt-32 pb-20 px-6 max-w-5xl mx-auto">
+        <div className="mb-12">
+          <span className={`${isSocial ? "text-purple-400/80" : "text-indigo-400/80"} text-[10px] font-medium tracking-[0.6em] uppercase block mb-4`}>
+            {isSocial ? "Contextual Vision Engine v3.0" : "Visual Intelligence v3.0"}
+          </span>
+          <h2 className="text-4xl font-extralight tracking-tight text-white mb-4">
+            Image <span className="font-medium">Analysis</span>
+          </h2>
+          <p className="text-slate-400 text-sm font-light leading-relaxed">
+            Extracting semantic signals from visual media using high-performance OCR and tonal mapping.
+          </p>
         </div>
 
-        {loading && (
-          <div className="loading">
-            <p>⏳ Extracting text from image...</p>
-            <p style={{fontSize: '0.9em', color: '#94a3b8'}}>This may take 2-5 seconds</p>
-          </div>
-        )}
-
-        {error && <div className="error">❌ Error: {error}</div>}
-
-        {result && (
-          <div className="result">
-            <h3>📊 Analysis Results</h3>
-            
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>📝 Extracted Text (OCR):</h4>
-              <div style={{
-                background: 'rgba(51, 65, 85, 0.5)',
-                padding: '12px',
-                borderRadius: '8px',
-                marginBottom: '16px',
-                whiteSpace: 'pre-wrap',
-                color: '#e2e8f0'
-              }}>
-                {result.ocr_text || '(No text detected)'}
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left Column: Input */}
+          <div className="flex flex-col gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+              <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest mb-6 border-b border-white/5 pb-4">Vision Core</h3>
+              
+              <div className="mb-8">
+                <label className="group block cursor-pointer">
+                  <div className={`w-full h-48 rounded-xl border-2 border-dashed ${isSocial ? "border-purple-500/30" : "border-indigo-500/30"} flex flex-col items-center justify-center gap-4 bg-white/5 group-hover:bg-white/10 transition-all`}>
+                    <span className={`material-symbols-outlined text-4xl ${isSocial ? "text-purple-400/50" : "text-indigo-400/50"}`}>add_a_photo</span>
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-slate-300 uppercase tracking-widest leading-loose">Initialize Scan</div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-widest">JPG, PNG, WEBP (Max 20MB)</div>
+                    </div>
+                  </div>
+                  <input type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+                </label>
               </div>
+
+              <div className="mb-8">
+                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Optional Context</h3>
+                <input
+                  type="text"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Inject additional metadata or caption..."
+                  className="w-full bg-black/20 border border-white/5 rounded-xl p-4 text-slate-300 placeholder-slate-700 font-light text-sm focus:ring-1 focus:ring-indigo-500/30 transition-all"
+                />
+              </div>
+
+              <button
+                onClick={submit}
+                disabled={loading || !file}
+                className={`w-full py-4 ${isSocial ? "bg-purple-500 shadow-purple-500/10" : "bg-indigo-500 shadow-indigo-500/10"} hover:opacity-90 disabled:opacity-30 rounded-full text-[11px] font-bold tracking-widest uppercase transition-all shadow-lg`}
+              >
+                {loading ? "Engaging OCR Nexus..." : "Run Multi-Modal Analysis"}
+              </button>
             </div>
 
-            {(() => {
-              const normalizedLabel = (result.sarcasm_label || '').toLowerCase()
-              const isSarcastic = normalizedLabel.includes('sarcastic')
-              const badgeStyle = {
-                background: isSarcastic
-                  ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600'
-              }
-              const labelText = result.sarcasm_label || (isSarcastic ? 'Sarcastic' : 'Not Sarcastic')
+            {error && (
+              <div className="bg-red-500/5 border border-red-500/10 text-red-400/80 p-4 rounded-xl text-[10px] font-medium tracking-widest uppercase">
+                ERR_VISION_INTERRUPT: {error}
+              </div>
+            )}
+          </div>
 
-              return (
-                <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-                  <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>
-                    {mode === 'social_media' ? '🎭 Sarcasm Analysis (Social Media Context)' : '🎭 Sarcasm Analysis'}
-                  </h4>
-                  <div className="badge" style={badgeStyle}>
-                    {labelText} — {result.sarcasm_intensity}% intensity
+          {/* Right Column: Preview/Results */}
+          <div className="flex flex-col gap-6">
+            {!result && preview && (
+               <div className="bg-white/5 border border-white/10 rounded-2xl p-2 backdrop-blur-sm relative overflow-hidden group">
+                   <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
+                  <img src={preview} alt="Input stream" className="w-full rounded-xl opacity-80" style={{ maxHeight: "600px", objectFit: "contain" }} />
+                  <div className="absolute top-4 left-4 text-[9px] font-bold tracking-[0.4em] text-white/50 uppercase">Reticule Level: Active</div>
+               </div>
+            )}
+
+            {!result && !preview && (
+              <div className="bg-white/5 border border-white/5 rounded-2xl h-[400px] flex items-center justify-center text-slate-600 text-[10px] uppercase tracking-widest italic border-dashed">
+                Awaiting visual signal...
+              </div>
+            )}
+
+            {result && (
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-lg">
+                <div className="flex items-center gap-3 mb-8">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Semantic Grid Recovered</h3>
+                </div>
+
+                <div className="mb-10">
+                  <h4 className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.5em] mb-4 text-center">OCR Output</h4>
+                  <div className="bg-black/40 rounded-xl p-4 text-slate-400 text-xs font-light leading-relaxed border border-white/5">
+                    {result.ocr_text || "No legible text detected in signal."}
                   </div>
                 </div>
-              )
-            })()}
 
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>💡 Explanation:</h4>
-              <p style={{color: '#cbd5e1'}}>{result.explanation}</p>
-              {result.mode_explanation && (
-                <p style={{ color: '#94a3b8', fontSize: '0.9em', marginTop: '8px' }}>
-                  ℹ️ {result.mode_explanation}
+                <div className="grid grid-cols-2 gap-8 mb-10">
+                  <div className="text-center">
+                    <div className={`text-5xl font-medium ${isSocial ? "text-purple-400" : "text-indigo-400"} mb-1`}>{result.sarcasm_intensity}%</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest">Sarcasm Level</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-5xl font-medium ${result.risk_score > 60 ? "text-red-400" : "text-green-400"} mb-1`}>{result.risk_score}</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest">Risk Score</div>
+                  </div>
+                </div>
+
+                <p className="text-slate-300 text-lg font-light leading-relaxed italic mb-8 border-l-2 border-white/10 pl-6">
+                  "{result.explanation}"
                 </p>
-              )}
-            </div>
 
-            {result.emotions && result.emotions.length > 0 && (
-              <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>😊 Detected Emotions:</h4>
-                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                  {result.emotions.map((emotion, i) => {
-                    let emotionText = '';
-                    // Parse JSON-like strings into objects if needed
-                    let e = emotion
-                    if (typeof e === 'string') {
-                      const t = e.trim()
-                      if ((t.startsWith('{') || t.startsWith('['))) {
-                        try {
-                          const parsed = JSON.parse(t)
-                          e = Array.isArray(parsed) ? (parsed[0] || parsed) : parsed
-                        } catch (err) {
-                          e = emotion
-                        }
-                      }
-                    }
+                {result.highlights && result.highlights.length > 0 && (
+                  <div className="mb-8">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4 text-left">Visual Highlights</h4>
+                    <div className="space-y-2 mt-4 text-left">
+                      {result.highlights.map((h, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <span className={`mt-1.5 w-1 h-1 rounded-full ${isSocial ? "bg-purple-500" : "bg-indigo-500"}`}></span>
+                          <span className="text-sm text-slate-400 font-light">{h}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                    if (typeof e === 'string') {
-                      emotionText = e;
-                    } else if (e && typeof e === 'object') {
-                      const label = e.label || e.emotion || e.name;
-                      const prob = e.prob ?? e.probability ?? e.score;
-                      if (label && (typeof prob === 'number')) {
-                        emotionText = `${label} (${Math.round(prob * 100)}%)`;
-                      } else if (label) {
-                        emotionText = label;
-                      } else {
-                        emotionText = JSON.stringify(e);
-                      }
-                    } else {
-                      emotionText = String(e);
-                    }
-
-                    return (
-                      <span key={i} style={{
-                        background: 'rgba(99, 102, 241, 0.2)',
-                        padding: '8px 14px',
-                        borderRadius: '20px',
-                        fontSize: '0.9em',
-                        color: '#c7d2fe',
-                        border: '1px solid rgba(99, 102, 241, 0.3)'
-                      }}>
-                        {emotionText}
+                <div className="text-left">
+                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Emotional Features</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {result.emotions?.map((e, i) => (
+                      <span key={i} className={`px-3 py-1 bg-${accentColor}-500/10 border border-${accentColor}-500/20 rounded-full text-[10px] text-slate-300 uppercase tracking-wider`}>
+                        {typeof e === "string" ? e : (e.label || e.emotion)}
                       </span>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>⚠️ Misinterpretation Risk Score:</h4>
-              <div style={{
-                background: result.risk_score < 34 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                           result.risk_score < 67 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
-                           'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600',
-                fontSize: '1.1em'
-              }}>
-                {result.risk_score}/100 — {result.risk_score < 34 ? '🟢 Low Risk' : result.risk_score < 67 ? '🟡 Moderate Risk' : '🔴 High Risk'}
-              </div>
-              <p style={{color: '#94a3b8', fontSize: '0.9em', marginTop: '8px'}}>
-                How likely this message could be misunderstood or cause confusion
-              </p>
-            </div>
-
-            {result.highlights && result.highlights.length > 0 && (
-              <div style={{marginBottom: '20px'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>✨ Key Highlights:</h4>
-                <ul style={{color: '#cbd5e1'}}>
-                  {result.highlights.map((h, i) => <li key={i}>{h}</li>)}
-                </ul>
-              </div>
-            )}
           </div>
-        )}
+        </div>
       </main>
 
-      <footer className="footer" style={{marginTop: 60, textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.95em', borderTop: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        Powered by <strong style={{color: '#a5b4fc'}}>OCR.space</strong> for text extraction & <strong style={{color: '#a5b4fc'}}>Google Gemini AI</strong> for analysis
+      <footer className="py-12 text-center">
+        <p className="text-[10px] text-slate-600 uppercase tracking-[0.4em]">Integrated Gemini Nexus v3.0  Protocol Connected</p>
       </footer>
+
+      
     </div>
-  )
+  );
 }

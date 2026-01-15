@@ -1,282 +1,201 @@
-import React, {useState, useContext} from 'react'
-import axios from 'axios'
-import { Link } from 'react-router-dom'
-import API_BASE_URL from '../config.js'
-import { ModeContext } from '../context/ModeContext' // Import ModeContext
+import React, { useState, useContext } from "react";
+import axios from "axios";
+import { Link } from "react-router-dom";
+import API_BASE_URL from "../config.js";
+import { ModeContext } from "../context/ModeContext";
 
-export default function TextPage(){
-  const { mode } = useContext(ModeContext); // Access the current mode from context
+export default function TextPage() {
+  const { mode, toggleMode } = useContext(ModeContext);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
 
-  const [text, setText] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
+  const isSocial = mode === "social_media";
+  const accentColor = isSocial ? "purple" : "indigo";
+
   const samples = [
-    "Yeah, great — another meeting.",
-    "I guess I'll just disappear, no one cares anyway.",
+    "Yeah, great  another meeting.",
+    "I guess I\"ll just disappear, no one cares anyway.",
     "Awesome, because waking up early is my favorite thing.",
     "Wow, you actually finished on time. Miracles happen.",
-    "I'm fine, don't worry.",
-  ]
+    "I\"m fine, don\"t worry.",
+  ];
 
-  async function analyze(){
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try{
-      const res = await axios.post(`${API_BASE_URL}/api/analyze`, {text}, {
-        headers: {
-          'X-Domain': mode // Add the X-Domain header
-        }
-      })
-      console.log('analyze success', res)
-      setResult(res.data)
-    }catch(e){
-      // stringify structured error details so React doesn't try to render objects
-      const details = e.response?.data?.detail || e.response?.data || e.message
-      const msg = typeof details === 'string' ? details : JSON.stringify(details)
-      console.error('analyze error', e, details)
-      setError(msg)
-    }finally{
-      setLoading(false)
+  async function analyze() {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/analyze`, { text }, {
+        headers: { "X-Domain": mode }
+      });
+      setResult(res.data);
+    } catch (e) {
+      const details = e.response?.data?.detail || e.response?.data || e.message;
+      setError(typeof details === "string" ? details : JSON.stringify(details));
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="page container">
-      <header className="header">
-        <h1>📝 Text Analysis {mode === 'social_media' && <span style={{fontSize: '0.6em', color: '#ec4899', fontWeight: '600'}}>(Social Media Mode)</span>}</h1>
-        <Link to="/" className="btn" style={{
-          padding: '10px 20px',
-          fontSize: '14px',
-          background: 'rgba(99, 102, 241, 0.1)',
-          border: '2px solid rgba(99, 102, 241, 0.3)',
-          color: '#a5b4fc'
-        }}>← Back to Home</Link>
-      </header>
+    <div className={`min-h-screen ${isSocial ? "bg-slate-950" : "bg-indigo-950"} text-slate-100 font-sans selection:bg-${accentColor}-500/30 overflow-x-hidden relative transition-colors duration-700`}>
+      {/* Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${isSocial ? "from-purple-900/10" : "from-indigo-900/10"} via-transparent to-transparent`}></div>
+        <div className="data-point top-[10%] left-[20%] opacity-20"></div>
+        <div className="data-point top-[80%] left-[70%] opacity-20"></div>
+      </div>
 
-      <main>
-        <p style={{color: '#94a3b8', fontSize: '15px', marginBottom: '24px'}}>
-          Paste text or pick a sample to analyze sarcasm and emotions.
-        </p>
-
-        {/* Sample Selection */}
-        <div style={{
-          marginBottom: '24px',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label htmlFor="sample-select" style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            💡 Try a Sample
-          </label>
-          <select 
-            id="sample-select" 
-            onChange={e=>setText(e.target.value)} 
-            value=""
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '10px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '15px',
-              background: 'rgba(51, 65, 85, 0.5)',
-              color: '#f1f5f9',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="">-- pick a sample --</option>
-            {samples.map((s,i)=>(<option key={i} value={s}>{s.substring(0,80)}</option>))}
-          </select>
-        </div>
-
-        {/* Text Input */}
-        <div style={{
-          marginBottom: '24px',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label htmlFor="text-input" style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            📝 Your Text
-          </label>
-          <textarea 
-            id="text-input" 
-            value={text} 
-            onChange={e=>setText(e.target.value)} 
-            placeholder="Paste a post or comment here...&#10;&#10;Example: 'Yeah, great — another meeting.'"
-            rows={6}
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '10px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '15px',
-              fontFamily: 'inherit',
-              resize: 'vertical',
-              background: 'rgba(51, 65, 85, 0.5)',
-              color: '#f1f5f9'
-            }}
-          ></textarea>
-          <small style={{color: '#94a3b8', fontSize: '0.9em', display: 'block', marginTop: '8px'}}>
-            Character count: {text.length}
-          </small>
-        </div>
-
-        <div className="actions">
+      <nav className="fixed top-0 w-full z-50 px-10 py-8 flex justify-between items-center bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm">
+        <Link to="/" className="flex items-center gap-3 group">
+          <span className={`material-symbols-outlined ${isSocial ? "text-purple-400" : "text-indigo-400"} font-light text-3xl transition-colors group-hover:rotate-180 duration-700`}>flare</span>
+          <span className="text-sm font-light tracking-[0.4em] uppercase text-slate-300">SarcasmDetect</span>
+        </Link>
+        <div className="flex gap-6 items-center">
           <button 
-            className="btn" 
-            onClick={analyze} 
-            disabled={loading || !text}
-            style={{
-              fontSize: '18px',
-              padding: '14px 32px',
-              fontWeight: '600'
-            }}
+            onClick={toggleMode}
+            className={`px-6 py-2 ${isSocial ? "bg-purple-500/10 border-purple-500/20 text-purple-300" : "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"} border rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-opacity-20 transition-all`}
           >
-            {loading ? '🔍 Analyzing...' : '🚀 Analyze Text'}
+            {isSocial ? "Social Mode" : "Default Mode"}
           </button>
+          <Link to="/catalog" className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-white/10 transition-all">
+            Back to Select Console
+          </Link>
+        </div>
+      </nav>
+
+      <main className="relative z-10 pt-32 pb-20 px-6 max-w-4xl mx-auto">
+        <div className="mb-12">
+          <span className={`${isSocial ? "text-purple-400/80" : "text-indigo-400/80"} text-[10px] font-medium tracking-[0.6em] uppercase block mb-4`}>
+            {isSocial ? "Social Media Engine" : "Linguistic Console"}
+          </span>
+          <h2 className="text-4xl font-extralight tracking-tight text-white mb-4">
+            Textual <span className="font-medium">Analysis</span>
+          </h2>
+          <p className="text-slate-400 text-sm font-light leading-relaxed">
+            Submit textual data for high-dimensional irony detection and semantic parsing.
+          </p>
         </div>
 
-        {loading && (
-          <div className="loading">
-            <p>⏳ Analyzing text for sarcasm...</p>
-            <p style={{fontSize: '0.9em', color: '#94a3b8'}}>This may take 2-3 seconds</p>
+        <div className="grid gap-6">
+          {/* Sample Grid */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+            <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">lightbulb</span> Patterns to Test
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {samples.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => setText(s)}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-slate-400 hover:text-white transition-all whitespace-nowrap"
+                >
+                  {s.length > 30 ? s.substring(0, 30) + "..." : s}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        {error && <div className="error">❌ Error: {error}</div>}
+          {/* Input Area */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Inject raw text for processing..."
+              rows={6}
+              className="w-full bg-transparent border-none focus:ring-0 text-slate-200 placeholder-slate-600 font-light text-lg resize-none"
+            />
+            <div className="flex justify-between items-center mt-6 pt-6 border-t border-white/5">
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">
+                Chars: {text.length}
+              </span>
+              <button
+                onClick={analyze}
+                disabled={loading || !text}
+                className={`px-8 py-3 ${isSocial ? "bg-purple-500" : "bg-indigo-500"} hover:opacity-90 disabled:opacity-30 rounded-full text-[11px] font-bold tracking-widest uppercase transition-all shadow-lg shadow-indigo-500/10`}
+              >
+                {loading ? "Processing..." : "Run Analysis"}
+              </button>
+            </div>
+          </div>
 
-        {result && (
-          <div className="result">
-            <h3>📊 Analysis Results</h3>
-            {(() => {
-              const normalizedLabel = (result.sarcasm_label || '').toLowerCase()
-              const isSarcastic = normalizedLabel.includes('sarcastic')
-              const badgeStyle = {
-                background: isSarcastic
-                  ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600'
-              }
-              const labelText = result.sarcasm_label || (isSarcastic ? 'Sarcastic' : 'Not Sarcastic')
+          {/* Results section */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-xs font-medium">
+              ERR_SIGNAL_INTERRUPTED: {error}
+            </div>
+          )}
 
-              return (
-                <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
-                    {mode === 'social_media' ? 'Sarcasm Intensity in Social Media Context' : 'Sarcasm Intensity'}:
-                  </h4>
-                  <div className="badge" style={badgeStyle}>
-                    {labelText} — {result.sarcasm_intensity}% intensity
+          {result && (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-lg">
+              <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Data Stream Recovered</h3>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className={`text-5xl font-medium ${isSocial ? "text-purple-400" : "text-indigo-400"} mb-2`}>
+                      {result.sarcasm_intensity}%
+                    </div>
+                    <div className="text-xs text-slate-500 uppercase tracking-[0.3em] font-medium">
+                      Sarcasm Probability Detected
+                    </div>
+                  </div>
+
+                  <p className="text-slate-300 text-lg font-light leading-relaxed italic mb-8 border-l-2 border-white/10 pl-6">
+                    "{result.explanation}"
+                  </p>
+
+                  {result.highlights && result.highlights.length > 0 && (
+                    <div className="mb-8">
+                      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Key Highlights</h4>
+                      <div className="space-y-2">
+                        {result.highlights.map((h, i) => (
+                          <div key={i} className="flex items-start gap-3">
+                            <span className={`mt-1.5 w-1 h-1 rounded-full ${isSocial ? "bg-purple-500" : "bg-indigo-500"}`}></span>
+                            <span className="text-sm text-slate-400 font-light">{h}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Emotional Features</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {result.emotions?.map((e, i) => (
+                        <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-slate-400 uppercase tracking-wider">
+                          {typeof e === "string" ? e : (e.label || e.emotion)}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              )
-            })()}
-            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
-                {mode === 'social_media' ? 'Explanation for Social Media Context' : 'Explanation'}:
-              </h4>
-              <p style={{ color: '#cbd5e1' }}>{result.explanation}</p>
-              {result.mode_explanation && (
-                <p style={{ color: '#94a3b8', fontSize: '0.9em', marginTop: '8px' }}>
-                  ℹ️ {result.mode_explanation}
-                </p>
-              )}
-            </div>
 
-            {result.emotions && result.emotions.length > 0 && (
-              <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>😊 Detected Emotions:</h4>
-                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                    {result.emotions.map((e, i) => {
-                      let emotionText = '';
-                      let obj = e
-                      if (typeof obj === 'string'){
-                        const t = obj.trim()
-                        if ((t.startsWith('{') || t.startsWith('['))) {
-                          try{
-                            const parsed = JSON.parse(t)
-                            obj = Array.isArray(parsed) ? (parsed[0] || parsed) : parsed
-                          }catch(err){
-                            obj = e
-                          }
-                        }
-                      }
-
-                      if (typeof obj === 'string') {
-                        emotionText = obj;
-                      } else if (obj && typeof obj === 'object') {
-                        const label = obj.label || obj.emotion || obj.name;
-                        const prob = obj.prob ?? obj.probability ?? obj.score;
-                        if (label && (typeof prob === 'number')) {
-                          emotionText = `${label} (${Math.round(prob * 100)}%)`;
-                        } else if (label) {
-                          emotionText = label;
-                        } else {
-                          emotionText = JSON.stringify(obj);
-                        }
-                      } else {
-                        emotionText = String(obj);
-                      }
-
-                      return (
-                        <span key={i} style={{
-                          background: 'rgba(99, 102, 241, 0.2)',
-                          padding: '8px 14px',
-                          borderRadius: '20px',
-                          fontSize: '0.9em',
-                          color: '#c7d2fe',
-                          border: '1px solid rgba(99, 102, 241, 0.3)'
-                        }}>
-                          {emotionText}
-                        </span>
-                      )
-                    })}
+                <div className="w-full md:w-48">
+                  <div className="bg-black/20 rounded-2xl p-6 border border-white/5 text-center">
+                    <div className={`text-2xl font-bold mb-1 ${result.risk_score > 60 ? "text-red-400" : "text-green-400"}`}>
+                      {result.risk_score}
+                    </div>
+                    <div className="text-[9px] text-slate-500 uppercase tracking-widest">Risk Score</div>
+                    <div className="w-full h-1 bg-white/5 rounded-full mt-4 overflow-hidden">
+                       <div className={`h-full ${result.risk_score > 60 ? "bg-red-500" : "bg-green-500"}`} style={{width: `${result.risk_score}%`}}></div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
-
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>⚠️ Misinterpretation Risk Score:</h4>
-              <div style={{
-                background: result.risk_score < 34 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                           result.risk_score < 67 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
-                           'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600',
-                fontSize: '1.1em'
-              }}>
-                {result.risk_score}/100 — {result.risk_score < 34 ? '🟢 Low Risk' : result.risk_score < 67 ? '🟡 Moderate Risk' : '🔴 High Risk'}
-              </div>
-              <p style={{color: '#94a3b8', fontSize: '0.9em', marginTop: '8px'}}>
-                How likely this message could be misunderstood or cause confusion
-              </p>
             </div>
-
-            {result.highlights && result.highlights.length > 0 && (
-              <div style={{marginBottom: '20px'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>✨ Key Highlights:</h4>
-                <ul style={{color: '#cbd5e1'}}>
-                  {result.highlights.map((h,i)=> <li key={i}>{h}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </main>
 
-      <footer className="footer" style={{marginTop: 60, textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.95em', borderTop: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        Powered by <strong style={{color: '#a5b4fc'}}>Google Gemini AI</strong> for sarcasm analysis
+      <footer className="py-12 text-center">
+        <p className="text-[10px] text-slate-600 uppercase tracking-[0.4em]">Integrated Gemini Nexus v3.0</p>
       </footer>
     </div>
-  )
+  );
 }

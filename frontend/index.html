@@ -4,14 +4,36 @@
     <meta charset="utf-8" />
      <!-- Viewport for responsive/mobile support -->
      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>SarcasmDetect AI</title>
+    <title>SarcasmDetect AI</title>
     <!-- Favicon: prefer SVG, fallback to ICO for browsers that request /favicon.ico -->
     <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
     <link rel="alternate icon" href="/public/favicon.ico">
-    <!-- Google Fonts - Space Grotesk -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              indigo: {
+                950: "#030617",
+                900: "#0f172a",
+                500: "#6366f1",
+              },
+            },
+            fontFamily: {
+              display: ["Plus Jakarta Sans", "sans-serif"],
+              sans: ["Plus Jakarta Sans", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>

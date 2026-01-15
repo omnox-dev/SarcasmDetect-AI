@@ -335,3 +335,29 @@ textarea:focus{
 	.hamburger{display:inline-block}
 }
 
+
+/* Landing Page Theme Styles */
+.data-point { position: absolute; width: 2px; height: 2px; background: #818cf8; border-radius: 50%; opacity: 0.3; }
+.frosted-circle { display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.7s ease-in-out; cursor: default; background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; position: relative; overflow: hidden; }
+.frosted-circle:hover { transform: scale(1.1); background: rgba(255, 255, 255, 0.08); border-color: rgba(129, 140, 248, 0.4); box-shadow: 0 0 60px rgba(99, 102, 241, 0.15); }
+.circle-content { opacity: 0; transition: opacity 0.5s; position: absolute; text-align: center; padding: 0 2rem; }
+.frosted-circle:hover .circle-content { opacity: 1; }
+.frosted-circle:hover .circle-icon { opacity: 0; transform: scale(0.5); }
+.circle-icon { transition: all 0.5s; color: #818cf8; font-size: 3rem; }
+.light-leak { background: radial-gradient(circle at 50% 100%, rgba(99, 102, 241, 0.15) 0%, transparent 70%); pointer-events: none; }
+.text-glow { text-shadow: 0 0 30px rgba(129, 140, 248, 0.3); }
+
+/* Hide native scrollbars across browsers while preserving scroll functionality */
+html, body, #root {
+	-ms-overflow-style: none; /* IE and Edge */
+	scrollbar-width: none; /* Firefox */
+}
+
+/* WebKit browsers (Chrome, Safari, Opera) */
+html::-webkit-scrollbar, body::-webkit-scrollbar, #root::-webkit-scrollbar {
+	width: 0px;
+	height: 0px;
+}
+
+/* Optional: prevent layout shift when scrollbar hidden by ensuring full-width */
+body { overflow-y: auto; }

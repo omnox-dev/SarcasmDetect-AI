@@ -1,506 +1,282 @@
-import React, {useState, useEffect, useRef, useContext} from 'react'
-import { Link } from 'react-router-dom'
-import axios from 'axios'
-import API_BASE_URL from '../config.js'
-import { ModeContext } from '../context/ModeContext'
+import React, { useState, useEffect, useRef, useContext } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import API_BASE_URL from "../config.js";
+import { ModeContext } from "../context/ModeContext";
 
-export default function VoicePage(){
-  const { mode } = useContext(ModeContext)
-  const [transcript, setTranscript] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [isRecording, setIsRecording] = useState(false)
-  const [isSupported, setIsSupported] = useState(true)
-  const [audioFile, setAudioFile] = useState(null)
-  const [audioFileName, setAudioFileName] = useState('')
-  const mediaRecorderRef = useRef(null)
-  const audioChunksRef = useRef([])
+export default function VoicePage() {
+  const { mode, toggleMode } = useContext(ModeContext);
+  const [transcript, setTranscript] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSupported, setIsSupported] = useState(true);
+  const [audioFile, setAudioFile] = useState(null);
+  const [audioFileName, setAudioFileName] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const isSocial = mode === "social_media";
+  const accentColor = isSocial ? "purple" : "indigo";
 
   useEffect(() => {
-    // Check if browser supports MediaRecorder API
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setIsSupported(false)
+      setIsSupported(false);
     }
-  }, [])
+  }, []);
 
   function startRecording() {
     if (!isSupported) {
-      setError('❌ Audio recording not supported in this browser. Please use a modern browser or upload a file.')
-      return
+      setError("Audio recording not supported in this browser.");
+      return;
     }
-
-    setError(null)
-    audioChunksRef.current = []
-
+    setError(null);
+    audioChunksRef.current = [];
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
-        const mediaRecorder = new MediaRecorder(stream)
-        mediaRecorderRef.current = mediaRecorder
-
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
         mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data)
-          }
-        }
-
-        mediaRecorder.onstop = async () => {
-          // Stop all tracks
-          stream.getTracks().forEach(track => track.stop())
-          
-          // Create audio blob
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-          
-          // Convert to file
-          const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
-          
-          // Set as the selected file (will be sent when user clicks Analyze)
-          setAudioFile(audioFile)
-          setAudioFileName('recording.webm (recorded just now)')
-          
-          // Show message
-          setError('✅ Recording saved! Click "Analyze Speech" to transcribe and analyze.')
-        }
-
-        mediaRecorder.start()
-        setIsRecording(true)
-        console.log('Recording started with MediaRecorder')
+          if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(track => track.stop());
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const file = new File([audioBlob], "recording.webm", { type: "audio/webm" });
+          setAudioFile(file);
+          setAudioFileName("Recorded stream active");
+        };
+        mediaRecorder.start();
+        setIsRecording(true);
       })
-      .catch(err => {
-        console.error('Failed to access microphone:', err)
-        if (err.name === 'NotAllowedError') {
-          setError('❌ Microphone permission denied. Please allow microphone access and try again.')
-        } else if (err.name === 'NotFoundError') {
-          setError('❌ No microphone found. Please connect a microphone and try again.')
-        } else {
-          setError('❌ Failed to access microphone: ' + err.message)
-        }
-      })
+      .catch(() => setError("Microphone access denied or unavailable"));
   }
 
   function stopRecording() {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-      console.log('Recording stopped')
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
   }
 
   function handleAudioFileChange(e) {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      // Check file type
-      const validTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/flac', 'video/mp4']
-      if (!validTypes.includes(file.type)) {
-        setError('❌ Unsupported file type. Please upload MP3, WAV, MP4, AAC, OGG, or FLAC files.')
-        return
-      }
-      
-      // Check file size (20MB limit for inline)
-      if (file.size > 20 * 1024 * 1024) {
-        setError('❌ File too large. Please upload files smaller than 20MB.')
-        return
-      }
-      
-      setAudioFile(file)
-      setAudioFileName(file.name)
-      setError(null)
+      setAudioFile(file);
+      setAudioFileName(file.name);
+      setError(null);
     }
   }
 
-  async function submit(){
-    // Check if we have either audio file or transcript
-    if(!audioFile && !transcript.trim()){ 
-      setError('Please upload an audio file, record your voice, or enter a transcript to analyze'); 
-      return 
+  async function submit() {
+    if (!audioFile && !transcript.trim()) {
+      setError("Initialize audio signal or textual transcript");
+      return;
     }
-    
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    
-    const fd = new FormData()
-    
-    if (audioFile) {
-      // If audio file is provided, send it for transcription + analysis
-      fd.append('audio_file', audioFile)
-      fd.append('transcript', '') // Will be generated by backend
-    } else {
-      // If only transcript is provided
-      fd.append('transcript', transcript)
-    }
-    
-    fd.append('acoustic_notes', '')
-    
-    try{
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    const fd = new FormData();
+    if (audioFile) fd.append("audio_file", audioFile);
+    fd.append("transcript", transcript);
+    fd.append("acoustic_notes", "");
+    try {
       const res = await axios.post(`${API_BASE_URL}/api/analyze/voice`, fd, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'X-Domain': mode // Add the X-Domain header
-        },
-        timeout: 60000 // Increased timeout for audio processing
-      })
-      
-      // If we uploaded audio and got transcript back, update the UI
-      if (audioFile && res.data.transcript) {
-        setTranscript(res.data.transcript)
-      }
-      
-      setResult(res.data)
-    }catch(e){
-      setError(e.response?.data?.detail || e.message)
-    }finally{ 
-      setLoading(false) 
+        headers: { "Content-Type": "multipart/form-data", "X-Domain": mode },
+        timeout: 60000
+      });
+      if (audioFile && res.data.transcript) setTranscript(res.data.transcript);
+      setResult(res.data);
+    } catch (e) {
+      setError(e.response?.data?.detail || e.message);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="page container">
-      <header className="header">
-        <h1>🎤 Voice/Speech Analysis</h1>
-        <Link to="/" className="btn" style={{
-          padding: '10px 20px',
-          fontSize: '14px',
-          background: 'rgba(99, 102, 241, 0.1)',
-          border: '2px solid rgba(99, 102, 241, 0.3)',
-          color: '#a5b4fc'
-        }}>← Back to Home</Link>
-      </header>
+    <div className={`min-h-screen ${isSocial ? "bg-slate-950" : "bg-indigo-950"} text-slate-100 font-sans selection:bg-${accentColor}-500/30 overflow-x-hidden relative transition-colors duration-700`}>
+      {/* Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${isSocial ? "from-purple-900/10" : "from-indigo-900/10"} via-transparent to-transparent`}></div>
+        <div className="data-point top-[15%] left-[80%] opacity-20"></div>
+        <div className="data-point top-[75%] left-[10%] opacity-20"></div>
+      </div>
 
-      <main>
-        {!isSupported && (
-          <div style={{
-            background: 'rgba(255, 193, 7, 0.15)',
-            border: '1px solid rgba(255, 193, 7, 0.5)',
-            borderRadius: '12px',
-            padding: '16px',
-            marginBottom: '24px',
-            color: '#fbbf24'
-          }}>
-            ⚠️ Audio recording not supported in this browser. Please use a modern browser (Chrome, Edge, Firefox) or upload an audio file instead.
-          </div>
-        )}
+      <nav className="fixed top-0 w-full z-50 px-10 py-8 flex justify-between items-center bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm">
+        <Link to="/" className="flex items-center gap-3 group">
+          <span className={`material-symbols-outlined ${isSocial ? "text-purple-400" : "text-indigo-400"} font-light text-3xl transition-colors group-hover:rotate-180 duration-700`}>flare</span>
+          <span className="text-sm font-light tracking-[0.4em] uppercase text-slate-300">SarcasmDetect</span>
+        </Link>
+        <div className="flex gap-6 items-center">
+          <button 
+            onClick={toggleMode}
+            className={`px-6 py-2 ${isSocial ? "bg-purple-500/10 border-purple-500/20 text-purple-300" : "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"} border rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-opacity-20 transition-all`}
+          >
+            {isSocial ? "Social Mode" : "Default Mode"}
+          </button>
+          <Link to="/catalog" className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[11px] font-medium tracking-widest uppercase hover:bg-white/10 transition-all">
+            Back to Select Console
+          </Link>
+        </div>
+      </nav>
 
-        {/* Option 1: Upload Audio/Video File */}
-        <div style={{
-          marginBottom: '24px', 
-          paddingBottom: '24px', 
-          borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '18px', color: '#a5b4fc'}}>
-            🎵 Option 1: Upload Audio/Video File
-          </label>
-          <p style={{color: '#94a3b8', fontSize: '14px', marginBottom: '16px', lineHeight: '1.6'}}>
-            📁 Upload any audio or video file and we'll transcribe it automatically.<br/>
-            ✅ Supported: MP3, WAV, MP4, AAC, OGG, FLAC (max 20MB)
+      <main className="relative z-10 pt-32 pb-20 px-6 max-w-4xl mx-auto">
+        <div className="mb-12">
+          <span className={`${isSocial ? "text-purple-400/80" : "text-indigo-400/80"} text-[10px] font-medium tracking-[0.6em] uppercase block mb-4`}>
+            {isSocial ? "Frequency Modulation v3.0" : "Acoustic Intelligence v3.0"}
+          </span>
+          <h2 className="text-4xl font-extralight tracking-tight text-white mb-4">
+            Voice <span className="font-medium">Analysis</span>
+          </h2>
+          <p className="text-slate-400 text-sm font-light leading-relaxed">
+            Deconstruct tonal micro-fluctuations and semantic irony from audio streams.
           </p>
-          <input 
-            type="file"
-            accept="audio/*,video/mp4"
-            onChange={handleAudioFileChange}
-            style={{
-              display: 'block',
-              padding: '12px',
-              border: '3px dashed rgba(99, 102, 241, 0.5)',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              width: '100%',
-              background: 'rgba(51, 65, 85, 0.5)',
-              fontSize: '16px',
-              fontWeight: '500',
-              color: '#f1f5f9'
-            }}
-          />
-          {audioFileName && (
-            <div style={{
-              marginTop: '12px',
-              padding: '12px 16px',
-              background: 'rgba(16, 185, 129, 0.15)',
-              borderRadius: '8px',
-              fontSize: '15px',
-              color: '#34d399',
-              fontWeight: '500',
-              border: '2px solid rgba(16, 185, 129, 0.3)'
-            }}>
-              ✅ Ready to analyze: <strong>{audioFileName}</strong>
+        </div>
+
+        <div className="grid gap-6">
+          {/* Input Panel */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+              {/* Recording Section */}
+              <div className="border-r border-white/5 pr-8">
+                <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest mb-4">Oscilloscope Control</h3>
+                <div className="flex items-center gap-4">
+                  {!isRecording ? (
+                    <button
+                      onClick={startRecording}
+                      disabled={!isSupported}
+                      className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:border-red-500/50 transition-all group"
+                    >
+                      <span className="material-symbols-outlined text-red-500">mic</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center shadow-lg shadow-red-500/20"
+                    >
+                      <span className="material-symbols-outlined text-white">stop</span>
+                    </button>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase tracking-widest text-slate-500">Signal Status</span>
+                    <span className={`text-xs font-medium ${isRecording ? "text-red-400" : "text-slate-300"}`}>
+                      {isRecording ? "Transmitting..." : "Ready to sample"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Section */}
+              <div>
+                <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest mb-4">Direct Injection</h3>
+                <label className="flex items-center gap-4 cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full border border-white/10 border-dashed flex items-center justify-center group-hover:border-indigo-400/50 transition-all">
+                    <span className="material-symbols-outlined text-slate-500 group-hover:text-indigo-400">upload_file</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase tracking-widest text-slate-500">File Stream</span>
+                    <span className="text-xs font-medium text-slate-300 truncate max-w-[150px]">
+                      {audioFileName || "Initialize upload"}
+                    </span>
+                  </div>
+                  <input type="file" onChange={handleAudioFileChange} className="hidden" accept="audio/*,video/mp4" />
+                </label>
+              </div>
+            </div>
+
+            <textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Captured transcript will appear here, or inject raw text..."
+              rows={4}
+              className="w-full bg-black/20 border border-white/5 rounded-xl p-4 text-slate-300 placeholder-slate-700 font-light text-sm resize-none focus:ring-1 focus:ring-indigo-500/30 transition-all"
+            />
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={submit}
+                disabled={loading || (!audioFile && !transcript)}
+                className={`px-8 py-3 ${isSocial ? "bg-purple-500" : "bg-indigo-500"} hover:opacity-90 disabled:opacity-30 rounded-full text-[11px] font-bold tracking-widest uppercase transition-all`}
+              >
+                {loading ? "Decrypting..." : "Analyze Signal"}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-500/5 border border-red-500/10 text-red-400/80 p-4 rounded-xl text-[10px] font-medium tracking-widest uppercase">
+              ERR_ACK_FAILED: {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-lg">
+               <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <h3 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Acoustic Signature Resolved</h3>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className={`text-5xl font-medium ${isSocial ? "text-purple-400" : "text-indigo-400"} mb-2`}>
+                      {result.sarcasm_intensity}%
+                    </div>
+                    <div className="text-xs text-slate-500 uppercase tracking-[0.3em] font-medium">
+                      Tonal Irony Intensity
+                    </div>
+                  </div>
+
+                  <p className="text-slate-300 text-lg font-light leading-relaxed italic mb-8 border-l-2 border-white/10 pl-6">
+                    "{result.explanation}"
+                  </p>
+
+                  {result.highlights && result.highlights.length > 0 && (
+                    <div className="mb-8">
+                      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Acoustic Highlights</h4>
+                      <div className="space-y-2">
+                        {result.highlights.map((h, i) => (
+                          <div key={i} className="flex items-start gap-3">
+                            <span className={`mt-1.5 w-1 h-1 rounded-full ${isSocial ? "bg-purple-500" : "bg-indigo-500"}`}></span>
+                            <span className="text-sm text-slate-400 font-light">{h}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Emotional Features</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {result.emotions?.map((e, i) => (
+                        <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-slate-400 uppercase tracking-wider">
+                          {typeof e === "string" ? e : (e.label || e.emotion)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full md:w-48 bg-black/20 rounded-2xl p-6 border border-white/5 flex flex-col items-center">
+                    <div className={`text-2xl font-bold mb-1 ${result.risk_score > 60 ? "text-red-400" : "text-green-400"}`}>
+                      {result.risk_score}/100
+                    </div>
+                    <div className="text-[9px] text-slate-500 uppercase tracking-widest text-center">Misinterpretation Score</div>
+                    <div className="w-full h-1 bg-white/5 rounded-full mt-4 overflow-hidden">
+                       <div className={`h-full ${result.risk_score > 60 ? "bg-red-500" : "bg-green-500"}`} style={{width: `${result.risk_score}%`}}></div>
+                    </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
-        
-        {/* Option 2: Real-Time Recording */}
-        <div style={{
-          marginBottom: '24px', 
-          paddingBottom: '24px', 
-          borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            🎙️ Option 2: Record Voice
-          </label>
-          <p style={{color: '#94a3b8', fontSize: '14px', marginBottom: '12px'}}>
-            Record directly from your microphone and we'll analyze it.
-          </p>
-          <div style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
-            {!isRecording ? (
-              <button 
-                onClick={startRecording}
-                disabled={!isSupported}
-                className="btn"
-                style={{
-                  background: isSupported ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(100, 116, 139, 0.5)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '10px',
-                  fontSize: '16px',
-                  cursor: isSupported ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontWeight: '600'
-                }}
-              >
-                🎙️ Start Recording
-              </button>
-            ) : (
-              <button 
-                onClick={stopRecording}
-                className="btn"
-                style={{
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '10px',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontWeight: '600'
-                }}
-              >
-                ⏹️ Stop Recording
-              </button>
-            )}
-            {isRecording && (
-              <span style={{color: '#ef4444', fontWeight: '600', fontSize: '14px'}}>
-                🔴 Recording...
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Option 3: Manual Transcript */}
-        <div style={{
-          marginBottom: '24px',
-          background: 'rgba(30, 41, 59, 0.5)',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '16px', color: '#a5b4fc'}}>
-            📝 Option 3: Enter Transcript Manually (Optional)
-          </label>
-          <p style={{color: '#94a3b8', fontSize: '14px', marginBottom: '12px'}}>
-            Already have text? Paste it here. Or leave blank to transcribe audio automatically.
-          </p>
-          <textarea 
-            value={transcript} 
-            onChange={e=>setTranscript(e.target.value)} 
-            rows={6}
-            placeholder="Optional: Type or paste transcript here...&#10;Leave blank if you uploaded/recorded audio - we'll transcribe it automatically!&#10;&#10;Example: 'Oh yeah, that meeting was super productive...'"
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '10px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '15px',
-              fontFamily: 'inherit',
-              resize: 'vertical',
-              background: 'rgba(51, 65, 85, 0.5)',
-              color: '#f1f5f9'
-            }}
-          ></textarea>
-          <small style={{color: '#94a3b8', fontSize: '0.9em', display: 'block', marginTop: '8px'}}>
-            Character count: {transcript.length}
-          </small>
-        </div>
-
-        <div className="actions">
-          <button 
-            className="btn" 
-            onClick={submit} 
-            disabled={loading || (!audioFile && !transcript.trim())}
-            style={{
-              marginTop: '12px',
-              fontSize: '18px',
-              padding: '14px 32px',
-              fontWeight: '600'
-            }}
-          >
-            {loading ? '🔍 Analyzing...' : '🚀 Analyze Speech'}
-          </button>
-          <p style={{
-            marginTop: '12px',
-            fontSize: '14px',
-            color: '#94a3b8',
-            textAlign: 'center'
-          }}>
-            {audioFile ? '📁 Will transcribe and analyze your audio file' : 
-             transcript ? '📝 Will analyze your transcript' : 
-             '⚠️ Please upload a file, record, or enter text'}
-          </p>
-        </div>
-
-        {loading && (
-          <div className="loading">
-            <p>⏳ Analyzing speech for sarcasm...</p>
-            <p style={{fontSize: '0.9em', color: '#94a3b8'}}>This may take 2-3 seconds</p>
-          </div>
-        )}
-
-        {error && <div className="error">❌ Error: {error}</div>}
-
-        {result && (
-          <div className="result">
-            <h3>📊 Analysis Results</h3>
-            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
-                {mode === 'social_media' ? 'Transcript in Social Media Context' : 'Transcript'}:
-              </h4>
-              <div style={{
-                background: 'rgba(51, 65, 85, 0.5)',
-                padding: '12px',
-                borderRadius: '8px',
-                whiteSpace: 'pre-wrap',
-                color: '#e2e8f0'
-              }}>
-                {result.transcript}
-              </div>
-            </div>
-            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <h4 style={{ marginBottom: '8px', color: '#f1f5f9' }}>
-                {mode === 'social_media' ? 'Sarcasm Analysis in Social Media Context' : 'Sarcasm Analysis'}:
-              </h4>
-              <div className="badge" style={{
-                background: result.sarcasm_label === 'sarcastic' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600'
-              }}>
-                {result.sarcasm_label.toUpperCase()} - {result.sarcasm_intensity}% intensity
-              </div>
-            </div>
-
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>💡 Explanation:</h4>
-              <p style={{color: '#cbd5e1'}}>{result.explanation}</p>
-            </div>
-
-            {result.emotions && result.emotions.length > 0 && (
-              <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>😊 Detected Emotions:</h4>
-                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                  {result.emotions.map((emotion, i) => {
-                    // Normalize and format different emotion shapes:
-                    // - { label: 'joy', prob: 0.95 }
-                    // - { emotion: 'joy' }
-                    // - 'joy'
-                    let emotionText = '';
-                    // If emotion is a JSON-like string, try to parse it into an object
-                    let e = emotion
-                    if (typeof e === 'string') {
-                      const t = e.trim()
-                      if ((t.startsWith('{') || t.startsWith('['))) {
-                        try {
-                          const parsed = JSON.parse(t)
-                          // If parsed is an array, take first element as the emotion object
-                          e = Array.isArray(parsed) ? (parsed[0] || parsed) : parsed
-                        } catch (err) {
-                          // leave e as the original string
-                          e = emotion
-                        }
-                      }
-                    }
-
-                    if (typeof e === 'string') {
-                      emotionText = e;
-                    } else if (e && typeof e === 'object') {
-                      const label = emotion.label || emotion.emotion || emotion.name;
-                      const prob = emotion.prob ?? emotion.probability ?? emotion.score;
-                      if (label && (typeof prob === 'number')) {
-                        emotionText = `${label} (${Math.round(prob * 100)}%)`;
-                      } else if (label) {
-                        emotionText = label;
-                      } else {
-                        emotionText = JSON.stringify(e);
-                      }
-                    } else {
-                      emotionText = String(e);
-                    }
-
-                    return (
-                      <span key={i} style={{
-                        background: 'rgba(99, 102, 241, 0.2)',
-                        padding: '8px 14px',
-                        borderRadius: '20px',
-                        fontSize: '0.9em',
-                        color: '#c7d2fe',
-                        border: '1px solid rgba(99, 102, 241, 0.3)'
-                      }}>
-                        {emotionText}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={{marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)'}}>
-              <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>⚠️ Misinterpretation Risk Score:</h4>
-              <div style={{
-                background: result.risk_score < 34 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                           result.risk_score < 67 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
-                           'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                color: 'white',
-                padding: '10px 18px',
-                borderRadius: '12px',
-                display: 'inline-block',
-                fontWeight: '600',
-                fontSize: '1.1em'
-              }}>
-                {result.risk_score}/100 — {result.risk_score < 34 ? '🟢 Low Risk' : result.risk_score < 67 ? '🟡 Moderate Risk' : '🔴 High Risk'}
-              </div>
-              <p style={{color: '#94a3b8', fontSize: '0.9em', marginTop: '8px'}}>
-                How likely this message could be misunderstood or cause confusion
-              </p>
-            </div>
-
-            {result.highlights && result.highlights.length > 0 && (
-              <div style={{marginBottom: '20px'}}>
-                <h4 style={{marginBottom: '8px', color: '#f1f5f9'}}>✨ Key Highlights:</h4>
-                <ul style={{color: '#cbd5e1'}}>
-                  {result.highlights.map((h, i) => <li key={i}>{h}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
-      <footer className="footer" style={{marginTop: 60, textAlign: 'center', padding: '24px', color: '#64748b', fontSize: '0.95em', borderTop: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        Powered by <strong style={{color: '#a5b4fc'}}>Google Gemini AI</strong> for transcription & analysis
+      <footer className="py-12 text-center">
+        <p className="text-[10px] text-slate-600 uppercase tracking-[0.4em]">Integrated Gemini Nexus v3.0</p>
       </footer>
     </div>
-  )
+  );
 }
