@@ -27,7 +27,8 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000", 
         "https://sarcasmdetect-ai.netlify.app",
-        "https://*.netlify.app"
+        "https://*.netlify.app",
+        "https://*.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -231,6 +232,7 @@ async def analyze_text(req: TextAnalyzeRequest, request: Request):
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health():
     return {"status": "ok"}
 

@@ -1,0 +1,23 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# HTTP Client & API
+requests==2.31.0
+urllib3==2.1.0
+
+# Data Validation
+pydantic==2.5.0
+
+# File Upload Handling
+python-multipart==0.0.6
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Google Gemini AI
+google-generativeai
+
+# Image Processing (for future use)
+Pillow
+
